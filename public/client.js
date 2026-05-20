@@ -5,20 +5,14 @@ const deniedScreen = document.getElementById('denied-screen');
 const deniedMessage = document.getElementById('denied-message');
 const adminBadge = document.getElementById('admin-badge');
 
-const adminSetupScreen = document.getElementById('admin-setup-screen');
 const adminLiveScreen = document.getElementById('admin-live-screen');
 const loginScreen = document.getElementById('login-screen');
 const quizScreen = document.getElementById('quiz-screen');
-
-// Admin Inputs
-const setupGroupCode = document.getElementById('setup-group-code');
-const setupHrName = document.getElementById('setup-hr-name');
 
 // Player Inputs
 const joinGroupCode = document.getElementById('join-group-code');
 const joinUsername = document.getElementById('join-username');
 const joinPin = document.getElementById('join-pin');
-const loginForm = document.getElementById('login-form');
 
 // Quiz Elements
 const questionText = document.getElementById('question-text');
@@ -27,16 +21,16 @@ const finishContainer = document.getElementById('finish-container');
 const questionContainer = document.getElementById('question-container');
 
 // Display Elements
-const playersList = document.getElementById('players-list');
-const playerCount = document.getElementById('player-count');
-const displayCode = document.getElementById('display-code');
+const groupsContainer = document.getElementById('groups-container');
+const votesList = document.getElementById('votes-list');
 
 let isAdmin = false;
 let currentQuestionIndex = 0;
 let hrTargetName = "HR";
 let myUsername = "";
+let myGroupCode = "";
+let myPin = "";
 
-// The fake corporate survey questions
 const questions = [
     {
         q: "1. How would you rate our company's leadership?",
@@ -55,9 +49,8 @@ const questions = [
         options: ["10 hours", "20 hours", "I live at the office now"]
     },
     {
-        // The punchline question
         q: "5. After analyzing the team dynamics, who should be immediately fired?",
-        options: [] // This will be dynamically populated with the HR person's name!
+        options: [] // dynamically populated based on DB group
     }
 ];
 
@@ -72,6 +65,11 @@ socket.on('admin_status', (status) => {
     isAdmin = status;
     if (isAdmin) {
         adminBadge.classList.remove('hidden');
+        adminLiveScreen.classList.remove('hidden');
+        loginScreen.classList.add('hidden');
+        quizScreen.classList.add('hidden');
+    } else {
+        loginScreen.classList.remove('hidden');
     }
 });
 
@@ -79,60 +77,42 @@ socket.on('system_message', (msg) => {
     showToast(msg.text, msg.type);
 });
 
-socket.on('state_update', (game) => {
-    if (isAdmin) {
-        // ADMIN ROUTING
-        if (game.status === 'setup') {
-            adminSetupScreen.classList.remove('hidden');
-            adminLiveScreen.classList.add('hidden');
-            loginScreen.classList.add('hidden');
-            quizScreen.classList.add('hidden');
-        } else {
-            adminSetupScreen.classList.add('hidden');
-            adminLiveScreen.classList.remove('hidden');
-            displayCode.textContent = game.groupCode;
-            
-            // Update live victim list
-            playersList.innerHTML = '';
-            playerCount.textContent = game.players.length;
-            game.players.forEach(p => {
-                const li = document.createElement('li');
-                li.textContent = p.name;
-                playersList.appendChild(li);
-            });
-        }
+socket.on('dashboard_update', (data) => {
+    if (!isAdmin) return;
+    
+    // Render Database Groups
+    groupsContainer.innerHTML = '';
+    data.groups.forEach(g => {
+        const div = document.createElement('div');
+        div.style.background = 'rgba(255,255,255,0.05)';
+        div.style.padding = '1rem';
+        div.style.borderRadius = '8px';
+        div.style.flex = '1 1 200px';
+        div.innerHTML = `
+            <div style="font-size: 0.8rem; color: #94a3b8;">${g.group_name} Team</div>
+            <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary); margin: 5px 0;">${g.group_code}</div>
+            <div style="font-size: 0.85rem;">Target: <span style="color: var(--danger); font-weight: bold;">${g.hr_name}</span></div>
+        `;
+        groupsContainer.appendChild(div);
+    });
+
+    // Render Database Votes
+    votesList.innerHTML = '';
+    if (data.votes.length === 0) {
+        votesList.innerHTML = '<li style="color: #94a3b8; font-style: italic;">No victims have voted yet...</li>';
     } else {
-        // PLAYER ROUTING
-        if (game.status === 'setup') {
-            loginScreen.classList.remove('hidden');
-            // Hide the login form entirely and show a waiting message
-            loginForm.classList.add('hidden');
-            let waitingMsg = document.getElementById('waiting-msg');
-            if(!waitingMsg) {
-                waitingMsg = document.createElement('p');
-                waitingMsg.id = 'waiting-msg';
-                waitingMsg.style.color = 'var(--danger)';
-                waitingMsg.textContent = "The mandatory survey is currently closed. Please wait.";
-                loginScreen.appendChild(waitingMsg);
-            } else {
-                waitingMsg.classList.remove('hidden');
-            }
-        } else if (game.status === 'active' && quizScreen.classList.contains('hidden')) {
-            // Survey is open, show login form
-            loginScreen.classList.remove('hidden');
-            loginForm.classList.remove('hidden');
-            const waitingMsg = document.getElementById('waiting-msg');
-            if(waitingMsg) waitingMsg.classList.add('hidden');
-        }
+        data.votes.forEach(v => {
+            const li = document.createElement('li');
+            li.innerHTML = `<strong>${v.username}</strong> <span style="color:#94a3b8; margin: 0 10px;">(Code: ${v.group_code})</span> voted at ${new Date(v.timestamp).toLocaleTimeString()}`;
+            votesList.appendChild(li);
+        });
     }
 });
 
 socket.on('join_success', (data) => {
-    // Populate the punchline question options
     hrTargetName = data.hrName;
     questions[4].options = [hrTargetName, hrTargetName, hrTargetName, hrTargetName];
     
-    // Switch to quiz UI
     loginScreen.classList.add('hidden');
     quizScreen.classList.remove('hidden');
     
@@ -144,22 +124,8 @@ socket.on('join_success', (data) => {
 
 // --- EVENT LISTENERS ---
 
-// Admin Start
-document.getElementById('setup-btn').addEventListener('click', () => {
-    const code = setupGroupCode.value.trim();
-    const hr = setupHrName.value.trim();
-    if (!code || !hr) return showToast('You must set a code and an HR name!', 'error');
-    socket.emit('setup_prank', { groupCode: code, hrName: hr });
-});
-
-// Admin Reset
-document.getElementById('reset-btn').addEventListener('click', () => {
-    socket.emit('reset_game');
-});
-
-// Player Join
 document.getElementById('join-btn').addEventListener('click', () => {
-    const code = joinGroupCode.value.trim();
+    const code = joinGroupCode.value.trim().toUpperCase();
     const user = joinUsername.value.trim();
     const pin = joinPin.value.trim();
     
@@ -167,7 +133,9 @@ document.getElementById('join-btn').addEventListener('click', () => {
         return showToast('All fields are required for security verification.', 'error');
     }
     
+    myGroupCode = code;
     myUsername = user;
+    myPin = pin;
     socket.emit('join_game', { groupCode: code, username: user, pin: pin });
 });
 
@@ -183,7 +151,6 @@ function renderQuestion() {
         btn.className = 'btn-secondary mt-2';
         btn.textContent = opt;
         
-        // Add prank styling for the final question
         if (currentQuestionIndex === 4) {
             btn.className = 'btn-danger mt-2';
             btn.style.fontSize = '1.2rem';
@@ -194,23 +161,22 @@ function renderQuestion() {
             if (currentQuestionIndex < questions.length) {
                 renderQuestion();
             } else {
-                // Quiz completed!
                 questionContainer.classList.add('hidden');
                 finishContainer.classList.remove('hidden');
-                socket.emit('quiz_finished', { username: myUsername });
+                
+                // Save to database!
+                socket.emit('quiz_finished', { groupCode: myGroupCode, username: myUsername, pin: myPin });
             }
         };
         optionsContainer.appendChild(btn);
     });
 }
 
-// Helper for notifications
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = message;
     
-    // Special styling for the prank notification on admin screen
     if(message.includes("GOT 'EM")) {
         toast.style.background = 'var(--danger)';
         toast.style.fontSize = '1.1rem';

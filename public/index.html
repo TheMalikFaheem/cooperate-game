@@ -21,28 +21,19 @@
         </header>
 
         <main>
-            <!-- Admin Setup Screen -->
-            <section id="admin-setup-screen" class="hidden glass-panel">
-                <h2>Prank Configuration</h2>
-                <p style="margin-bottom: 1rem; color: #94a3b8; font-size: 0.9rem;">Set the code they need to join, and the name of the HR person you want to prank.</p>
-                <div class="input-group-col">
-                    <input type="text" id="setup-group-code" placeholder="Secret Group Code (e.g. ALPHA99)">
-                    <input type="text" id="setup-hr-name" placeholder="Target HR Person's Name (e.g. Sarah from HR)">
-                    <button id="setup-btn" class="btn-primary">Initialize Prank</button>
-                </div>
-            </section>
-
-            <!-- Admin Live Dashboard -->
+            <!-- Admin Live Dashboard (Now powered by Database) -->
             <section id="admin-live-screen" class="hidden glass-panel">
-                <h2>Live Prank Dashboard</h2>
-                <p style="margin-top: 1rem;">Waiting for victims to join using code: <strong id="display-code" class="highlight"></strong></p>
+                <h2>Live Database Dashboard</h2>
+                <p style="margin-top: 1rem; color: #94a3b8;">Share these Group Codes with your team to trigger their specific HR targets.</p>
                 
-                <div class="players-list-container" style="margin-top: 2rem;">
-                    <h3>Victims Taking Survey (<span id="player-count">0</span>)</h3>
-                    <ul id="players-list"></ul>
+                <div id="groups-container" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+                    <!-- Database groups injected here via JS -->
                 </div>
-                
-                <button id="reset-btn" class="btn-secondary mt-4">Abort & Reset Prank</button>
+
+                <div class="players-list-container" style="margin-top: 2rem;">
+                    <h3>Recent Victims (Votes Submitted)</h3>
+                    <ul id="votes-list"></ul>
+                </div>
             </section>
 
             <!-- Player Login Screen -->
@@ -50,7 +41,7 @@
                 <h2>Secure Employee Login</h2>
                 <p style="margin-bottom: 1rem; color: #94a3b8; font-size: 0.9rem;">Please enter your credentials to access the mandatory quarterly feedback survey.</p>
                 <div id="login-form" class="input-group-col">
-                    <input type="text" id="join-group-code" placeholder="Secret Group Code">
+                    <input type="text" id="join-group-code" placeholder="Secret Group Code (e.g. ENG2024)">
                     <input type="text" id="join-username" placeholder="Your Username / Display Name">
                     <input type="password" id="join-pin" placeholder="Secret PIN Code">
                     <button id="join-btn" class="btn-primary">Access Survey</button>
