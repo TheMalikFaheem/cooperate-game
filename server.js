@@ -36,19 +36,21 @@ io.on('connection', (socket) => {
     sendInitialState(socket);
 
     // --- ADMIN CONFIG ---
-    socket.on('update_hr', (newName) => {
+    socket.on('new_round', (newName) => {
         if (socket.id !== adminSocketId) return;
-        db.run("UPDATE config SET hr_name = ? WHERE id = 1", [newName], () => {
+        db.run("UPDATE config SET target_name = ? WHERE id = 1", [newName], () => {
             sendInitialState(io); 
-            socket.emit('system_message', { type: 'success', text: `Target changed to ${newName}` });
+            socket.emit('system_message', { type: 'success', text: `New round started for ${newName}!` });
         });
     });
 
-    socket.on('reset_all', () => {
+    socket.on('reset_all_users', () => {
         if (socket.id !== adminSocketId) return;
         db.run("DELETE FROM users", () => {
-            sendInitialState(io);
-            socket.emit('system_message', { type: 'info', text: `All users deleted.` });
+            db.run("DELETE FROM messages", () => {
+                sendInitialState(io);
+                socket.emit('system_message', { type: 'info', text: `Everything wiped.` });
+            });
         });
     });
 
@@ -59,12 +61,9 @@ io.on('connection', (socket) => {
             if (err) {
                 socket.emit('system_message', { type: 'error', text: 'Profile already exists! Try logging in.' });
             } else {
-                db.get("SELECT hr_name FROM config WHERE id = 1", (err, row) => {
-                    socket.emit('login_success', { username, hrName: row.hr_name });
-                    sendInitialState(io); // Update screens for everyone
-                    if(adminSocketId) {
-                         io.to(adminSocketId).emit('system_message', { type: 'info', text: `${username} created a profile.` });
-                    }
+                db.get("SELECT target_name FROM config WHERE id = 1", (err, row) => {
+                    socket.emit('login_success', { username, targetName: row.target_name });
+                    sendInitialState(io); 
                 });
             }
         });
@@ -74,12 +73,14 @@ io.on('connection', (socket) => {
         const { username, pin } = data;
         db.get("SELECT * FROM users WHERE username = ? AND pin = ?", [username, pin], (err, user) => {
             if (user) {
-                if (user.has_voted) {
-                    socket.emit('system_message', { type: 'error', text: 'You have already submitted your mandatory feedback!' });
-                    return;
-                }
-                db.get("SELECT hr_name FROM config WHERE id = 1", (err, row) => {
-                    socket.emit('login_success', { username, hrName: row.hr_name });
+                db.get("SELECT target_name FROM config WHERE id = 1", (err, config) => {
+                    db.get("SELECT id FROM messages WHERE target_name = ? AND author = ?", [config.target_name, username], (err, msg) => {
+                        socket.emit('login_success', { 
+                            username, 
+                            targetName: config.target_name,
+                            hasSubmittedForCurrentRound: !!msg 
+                        });
+                    });
                 });
             } else {
                 socket.emit('system_message', { type: 'error', text: 'Incorrect PIN.' });
@@ -87,28 +88,30 @@ io.on('connection', (socket) => {
         });
     });
 
-    // --- PRANK COMPLETION ---
-    socket.on('quiz_finished', (username) => {
-        db.run("UPDATE users SET has_voted = 1 WHERE username = ?", [username], () => {
-            db.get("SELECT hr_name FROM config WHERE id = 1", (err, row) => {
-                if (adminSocketId) {
-                    io.to(adminSocketId).emit('system_message', { 
-                        type: 'success', 
-                        text: `🎯 GOT 'EM! ${username} just voted to fire ${row.hr_name}!` 
-                    });
-                }
-                sendInitialState(io); // Updates the "has_voted" status on the profile select screen
+    // --- SUBMIT MESSAGE ---
+    socket.on('submit_message', (data) => {
+        const { username, message } = data;
+        db.get("SELECT target_name FROM config WHERE id = 1", (err, config) => {
+            const target = config.target_name;
+            db.run("INSERT INTO messages (target_name, author, message) VALUES (?, ?, ?)", [target, username, message], () => {
+                socket.emit('submission_success');
+                sendInitialState(io); // Broadcast to update Admin dashboard live
             });
         });
     });
+
 });
 
 function sendInitialState(target) {
-    db.get("SELECT hr_name FROM config WHERE id = 1", (err, config) => {
-        db.all("SELECT id, username, has_voted FROM users", (err, users) => {
-            target.emit('state_update', { 
-                hrName: config ? config.hr_name : 'HR',
-                users: users || []
+    db.get("SELECT target_name FROM config WHERE id = 1", (err, config) => {
+        const targetName = config ? config.target_name : 'Waiting...';
+        db.all("SELECT id, username FROM users", (err, users) => {
+            db.all("SELECT * FROM messages WHERE target_name = ? ORDER BY timestamp DESC", [targetName], (err, messages) => {
+                target.emit('state_update', { 
+                    targetName,
+                    users: users || [],
+                    messages: messages || []
+                });
             });
         });
     });

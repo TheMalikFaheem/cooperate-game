@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Employee Feedback Portal</title>
+    <title>Who Said That?</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
@@ -16,26 +16,31 @@
         </div>
 
         <header id="main-header">
-            <h1>Company <span class="highlight">Feedback</span></h1>
+            <h1>GUESS <span class="highlight">WHO</span></h1>
             <div id="admin-badge" class="hidden">★ ADMIN</div>
         </header>
 
         <main>
-            <!-- Admin Settings Screen -->
+            <!-- Admin Dashboard -->
             <section id="admin-screen" class="hidden glass-panel" style="margin-bottom: 2rem;">
-                <h2>Admin Configuration</h2>
+                <h2>Admin Dashboard</h2>
                 <div class="input-group">
-                    <input type="text" id="admin-hr-input" placeholder="Change HR Target Name">
-                    <button id="admin-save-btn" class="btn-primary" style="width: auto;">Save</button>
+                    <input type="text" id="admin-target-input" placeholder="Next person to review...">
+                    <button id="admin-start-btn" class="btn-primary" style="width: auto;">Start Round</button>
                 </div>
-                <button id="admin-reset-btn" class="btn-danger mt-2">Delete All Users & Votes</button>
+                
+                <div class="messages-container mt-4">
+                    <h3>Messages about: <span id="admin-current-target" class="highlight"></span></h3>
+                    <ul id="admin-messages-list" style="margin-top: 1rem;"></ul>
+                </div>
+
+                <button id="admin-reset-btn" class="btn-secondary mt-4">Delete All Users & History</button>
             </section>
 
             <!-- Netflix Style Profile Selector -->
             <section id="profiles-screen" class="hidden">
-                <h2 class="text-center" style="font-size: 2rem; margin-bottom: 2rem;">Who's taking the survey?</h2>
+                <h2 class="text-center" style="font-size: 2rem; margin-bottom: 2rem;">Who's playing?</h2>
                 <div id="profiles-container" class="profiles-grid">
-                    <!-- Dynamic Profiles Injected Here -->
                     <div class="profile-card add-profile" id="btn-show-add">
                         <div class="avatar">+</div>
                         <div class="name">Add User</div>
@@ -66,16 +71,18 @@
                 </div>
             </section>
 
-            <!-- Quiz Screen -->
-            <section id="quiz-screen" class="hidden glass-panel">
-                <div id="question-container">
-                    <h2 id="question-text">Question 1</h2>
-                    <div id="options-container" class="input-group-col"></div>
-                </div>
-                <div id="finish-container" class="hidden text-center">
-                    <h2>Survey Submitted! ✅</h2>
-                    <p style="margin-top: 1rem; color: #94a3b8;">Thank you for your honest feedback. Management has been notified of your recommendation.</p>
-                </div>
+            <!-- Write Review Screen -->
+            <section id="review-screen" class="hidden glass-panel text-center">
+                <h2>Spill the tea on: <br><span id="review-target-name" class="highlight" style="font-size: 2.5rem; display: block; margin: 10px 0;"></span></h2>
+                <textarea id="review-text" rows="4" placeholder="Write something funny, a memory, or an anonymous review..."></textarea>
+                <button id="submit-review-btn" class="btn-primary mt-4">Send Anonymously</button>
+            </section>
+
+            <!-- Waiting Screen -->
+            <section id="waiting-screen" class="hidden glass-panel text-center">
+                <h2>Message Sent! ✅</h2>
+                <p style="margin-top: 1rem; color: #94a3b8;">Waiting for everyone else to finish...</p>
+                <p style="font-size: 0.9rem; color: #64748b; margin-top: 2rem;">The screen will automatically refresh when the admin starts the next round.</p>
             </section>
         </main>
 

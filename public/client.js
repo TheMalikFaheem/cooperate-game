@@ -17,25 +17,17 @@ const addUserScreen = document.getElementById('add-user-screen');
 const newUsername = document.getElementById('new-username');
 const newPin = document.getElementById('new-pin');
 
-const quizScreen = document.getElementById('quiz-screen');
-const questionText = document.getElementById('question-text');
-const optionsContainer = document.getElementById('options-container');
-const finishContainer = document.getElementById('finish-container');
-const questionContainer = document.getElementById('question-container');
+const reviewScreen = document.getElementById('review-screen');
+const reviewTargetName = document.getElementById('review-target-name');
+const reviewText = document.getElementById('review-text');
+const submitReviewBtn = document.getElementById('submit-review-btn');
+
+const waitingScreen = document.getElementById('waiting-screen');
 
 let isAdmin = false;
 let myUsername = "";
 let selectedProfile = "";
-let hrTargetName = "HR";
-let currentQuestionIndex = 0;
-
-const questions = [
-    { q: "1. How would you rate our company's leadership?", options: ["Outstanding", "Excellent", "Flawless"] },
-    { q: "2. What is your favorite part of the job?", options: ["The Synergy", "The Coffee", "Mandatory Meetings"] },
-    { q: "3. How productive do you feel working here?", options: ["100%", "110%", "I am basically a machine"] },
-    { q: "4. How much overtime are you willing to do without pay?", options: ["10 hours", "20 hours", "I live at the office now"] },
-    { q: "5. After analyzing the team dynamics, who should be immediately fired?", options: [] }
-];
+let currentTarget = "";
 
 // --- SOCKET EVENTS ---
 socket.on('access_denied', (msg) => {
@@ -54,17 +46,39 @@ socket.on('admin_status', (status) => {
 socket.on('system_message', (msg) => showToast(msg.text, msg.type));
 
 socket.on('state_update', (data) => {
-    // We only update profiles if we are on the profile screen (or admin)
-    if (quizScreen.classList.contains('hidden') || isAdmin) {
+    // Admin specific updates
+    if (isAdmin) {
+        document.getElementById('admin-current-target').textContent = data.targetName;
+        const msgList = document.getElementById('admin-messages-list');
+        msgList.innerHTML = '';
+        if (data.messages.length === 0) {
+            msgList.innerHTML = '<li style="color: #94a3b8; font-style: italic; background: transparent;">No messages yet for this person...</li>';
+        } else {
+            data.messages.forEach(m => {
+                const li = document.createElement('li');
+                li.style.flexDirection = 'column';
+                li.style.alignItems = 'flex-start';
+                li.innerHTML = `<span style="color:#cbd5e1; font-size:1.2rem; margin-bottom: 0.5rem;">"${m.message}"</span> <strong style="font-size: 0.8rem; color: var(--primary);">— ${m.author}</strong>`;
+                msgList.appendChild(li);
+            });
+        }
+    }
+
+    // Update profiles if user is not logged in yet
+    if (myUsername === "") {
         profilesScreen.classList.remove('hidden');
         renderProfiles(data.users);
+    } else {
+        // If logged in but the Admin started a new round with a new target, refresh the state
+        if (currentTarget !== data.targetName) {
+            socket.emit('login_user', { username: myUsername, pin: window.mySecretPin });
+        }
     }
 });
 
 socket.on('login_success', (data) => {
     myUsername = data.username;
-    hrTargetName = data.hrName;
-    questions[4].options = [hrTargetName, hrTargetName, hrTargetName, hrTargetName];
+    currentTarget = data.targetName;
     
     pinScreen.classList.add('hidden');
     addUserScreen.classList.add('hidden');
@@ -72,40 +86,51 @@ socket.on('login_success', (data) => {
     adminScreen.classList.add('hidden');
     document.getElementById('main-header').classList.add('hidden');
     
-    quizScreen.classList.remove('hidden');
-    currentQuestionIndex = 0;
-    finishContainer.classList.add('hidden');
-    questionContainer.classList.remove('hidden');
-    renderQuestion();
+    if (data.hasSubmittedForCurrentRound || currentTarget.includes("Waiting")) {
+        reviewScreen.classList.add('hidden');
+        waitingScreen.classList.remove('hidden');
+        
+        if (currentTarget.includes("Waiting")) {
+            waitingScreen.innerHTML = `<h2>Please Wait...</h2><p style="color:#94a3b8; margin-top:1rem;">The admin is selecting the next person to review.</p>`;
+        } else {
+            waitingScreen.innerHTML = `<h2>Message Sent! ✅</h2><p style="color:#94a3b8; margin-top:1rem;">Waiting for everyone else to finish reviewing <strong>${currentTarget}</strong>...</p>`;
+        }
+    } else {
+        waitingScreen.classList.add('hidden');
+        reviewScreen.classList.remove('hidden');
+        reviewTargetName.textContent = currentTarget;
+        reviewText.value = ''; // clear previous
+    }
 });
 
-// --- RENDER PROFILES (NETFLIX STYLE) ---
+socket.on('submission_success', () => {
+    reviewScreen.classList.add('hidden');
+    waitingScreen.classList.remove('hidden');
+    waitingScreen.innerHTML = `<h2>Message Sent! ✅</h2><p style="color:#94a3b8; margin-top:1rem;">Waiting for everyone else to finish reviewing <strong>${currentTarget}</strong>...</p>`;
+});
+
+// --- RENDER PROFILES ---
 function renderProfiles(users) {
-    // Remove existing profiles (keep the "Add User" button)
     document.querySelectorAll('.profile-card:not(.add-profile)').forEach(el => el.remove());
     
     users.forEach(user => {
         const card = document.createElement('div');
-        card.className = `profile-card ${user.has_voted ? 'voted' : ''}`;
+        card.className = `profile-card`;
         
-        // Generate a random background color based on name length so avatars look different
         const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'];
         const color = colors[user.username.length % colors.length];
 
         card.innerHTML = `
             <div class="avatar" style="background: ${color}">${user.username.charAt(0).toUpperCase()}</div>
             <div class="name">${user.username}</div>
-            ${user.has_voted ? '<div style="font-size:0.7rem; color:#94a3b8; margin-top:5px;">Already Voted</div>' : ''}
         `;
         
-        if (!user.has_voted) {
-            card.onclick = () => {
-                selectedProfile = user.username;
-                pinPrompt.textContent = `Enter PIN for ${user.username}`;
-                loginPinInput.value = '';
-                pinScreen.classList.remove('hidden');
-            };
-        }
+        card.onclick = () => {
+            selectedProfile = user.username;
+            pinPrompt.textContent = `Enter PIN for ${user.username}`;
+            loginPinInput.value = '';
+            pinScreen.classList.remove('hidden');
+        };
         
         profilesContainer.insertBefore(card, btnShowAdd);
     });
@@ -125,68 +150,40 @@ document.getElementById('add-submit-btn').onclick = () => {
     const user = newUsername.value.trim();
     const pin = newPin.value.trim();
     if (!user || !pin) return showToast('Name and PIN are required!', 'error');
+    window.mySecretPin = pin; // save to auto-login on new rounds
     socket.emit('create_user', { username: user, pin: pin });
 };
 
 document.getElementById('pin-submit-btn').onclick = () => {
     const pin = loginPinInput.value.trim();
     if (!pin) return showToast('Please enter your PIN', 'error');
+    window.mySecretPin = pin;
     socket.emit('login_user', { username: selectedProfile, pin: pin });
 };
 
+submitReviewBtn.onclick = () => {
+    const text = reviewText.value.trim();
+    if(!text) return showToast('You must write something!', 'error');
+    socket.emit('submit_message', { username: myUsername, message: text });
+};
+
 // Admin config
-document.getElementById('admin-save-btn').onclick = () => {
-    const newHR = document.getElementById('admin-hr-input').value.trim();
-    if(newHR) socket.emit('update_hr', newHR);
+document.getElementById('admin-start-btn').onclick = () => {
+    const target = document.getElementById('admin-target-input').value.trim();
+    if(target) socket.emit('new_round', target);
 };
 document.getElementById('admin-reset-btn').onclick = () => {
-    if(confirm('Are you sure you want to delete all users and votes?')) socket.emit('reset_all');
+    if(confirm('Wipe everything? All users and messages will be lost.')) socket.emit('reset_all_users');
 };
-
-// --- QUIZ LOGIC ---
-function renderQuestion() {
-    optionsContainer.innerHTML = '';
-    const q = questions[currentQuestionIndex];
-    questionText.textContent = q.q;
-    
-    q.options.forEach(opt => {
-        const btn = document.createElement('button');
-        btn.className = 'btn-secondary mt-2';
-        btn.textContent = opt;
-        
-        if (currentQuestionIndex === 4) {
-            btn.className = 'btn-danger mt-2';
-            btn.style.fontSize = '1.2rem';
-        }
-
-        btn.onclick = () => {
-            currentQuestionIndex++;
-            if (currentQuestionIndex < questions.length) {
-                renderQuestion();
-            } else {
-                questionContainer.classList.add('hidden');
-                finishContainer.classList.remove('hidden');
-                socket.emit('quiz_finished', myUsername);
-            }
-        };
-        optionsContainer.appendChild(btn);
-    });
-}
 
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = message;
     
-    if(message.includes("GOT 'EM")) {
-        toast.style.background = 'var(--danger)';
-        toast.style.fontSize = '1.1rem';
-        toast.style.padding = '20px';
-    }
-    
     document.getElementById('toast-container').appendChild(toast);
     setTimeout(() => {
         toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 300);
-    }, 5000);
+    }, 4000);
 }

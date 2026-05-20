@@ -130,6 +130,24 @@ input:focus {
     border-color: var(--primary);
 }
 
+textarea {
+    width: 100%;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid var(--glass-border);
+    color: white;
+    padding: 1rem;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    outline: none;
+    transition: border-color 0.3s;
+    resize: vertical;
+    font-family: 'Inter', sans-serif;
+}
+
+textarea:focus {
+    border-color: var(--primary);
+}
+
 button {
     cursor: pointer;
     border: none;
@@ -175,7 +193,6 @@ li {
     font-weight: 600;
 }
 
-/* Toast notifications */
 .profiles-grid {
     display: flex;
     justify-content: center;
@@ -241,6 +258,7 @@ li {
     font-size: 1.1rem;
 }
 
+/* Toast notifications */
 #toast-container {
     position: fixed;
     bottom: 20px;
