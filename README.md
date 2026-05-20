@@ -56,18 +56,15 @@ cd cooperate-game
 
 ---
 
-### Step 3: Build and Run the Docker Container
-Build the docker image and spin it up. We will map port `3000` from the container to port `3000` on your Ubuntu server.
+### Step 3: Build and Run with Docker Compose
+We will use Docker Compose to manage the container. The game will run on port `4000` (since port 3000 was in use).
 
 ```bash
-# Build the Docker image
-sudo docker build -t cutthroat-corp .
-
-# Run the container in detached mode (-d)
-sudo docker run -d -p 3000:3000 --name cutthroat-corp --restart unless-stopped cutthroat-corp
+# Start the container in the background
+sudo docker compose up -d --build
 ```
 
-Your game is now live! You can access it by going to `http://<YOUR_UBUNTU_SERVER_IP>:3000`. 
+Your game is now live! You can access it by going to `http://<YOUR_UBUNTU_SERVER_IP>:4000`. 
 **Remember:** The first person who connects to it will lock the room to their specific Wi-Fi network's IP address.
 
 ---
@@ -94,7 +91,7 @@ server {
     server_name game.yourdomain.com;
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:4000;
         
         # VERY IMPORTANT: These headers allow the Node.js IP-Lock to work
         proxy_set_header Host $host;
@@ -122,8 +119,12 @@ If you make changes to the code and push to GitHub, run these commands on the se
 ```bash
 cd ~/cooperate-game
 git pull origin main
-sudo docker build -t cutthroat-corp .
-sudo docker stop cutthroat-corp
-sudo docker rm cutthroat-corp
-sudo docker run -d -p 3000:3000 --name cutthroat-corp --restart unless-stopped cutthroat-corp
+sudo docker compose up -d --build
+```
+
+### Removing Old Containers
+If you need to completely wipe the existing container and image, run:
+```bash
+sudo docker compose down
+sudo docker rmi cutthroat-corp
 ```
