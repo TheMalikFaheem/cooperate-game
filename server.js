@@ -2,19 +2,16 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const db = require('./db'); // Import the SQLite database
+const db = require('./db');
 
 const app = express();
-// Trust proxy to get the real IP if hosted behind a reverse proxy (like Nginx)
 app.set('trust proxy', true);
 const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT = process.env.PORT || 4000;
-
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Network IP locking state
 let adminIp = null;
 let adminSocketId = null;
 
@@ -22,88 +19,97 @@ io.on('connection', (socket) => {
     const rawIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
     const clientIp = rawIp.split(',')[0].trim();
     
-    console.log(`Connection attempt from IP: ${clientIp}`);
-
-    // IP LOCKING LOGIC
+    // IP LOCKING
     if (!adminIp) {
         adminIp = clientIp;
         adminSocketId = socket.id;
-        console.log(`Admin locked to IP: ${adminIp}`);
         socket.emit('admin_status', true);
-        sendAdminDashboard(socket);
     } else {
-        // Enforce network lock (allowing local dev IPs for testing)
         if (clientIp !== adminIp && clientIp !== '::1' && clientIp !== '127.0.0.1') {
-            console.log(`Blocked unauthorized IP: ${clientIp}`);
-            socket.emit('access_denied', 'Access Denied: Must be on the company local network to access this internal portal.');
+            socket.emit('access_denied', 'Access Denied: Please connect to the local network.');
             socket.disconnect(true);
             return;
         }
         socket.emit('admin_status', false);
     }
 
-    // --- PRANK LOGIC (Database Integrated) ---
-    
-    // Victim joins the survey
-    socket.on('join_game', (data) => {
-        const { groupCode, username, pin } = data;
-        
-        // Check database to see if groupCode exists
-        db.get("SELECT hr_name FROM groups WHERE group_code = ?", [groupCode], (err, row) => {
-            if (err || !row) {
-                socket.emit('system_message', { type: 'error', text: 'Invalid Secret Group Code.' });
-                return;
-            }
+    sendInitialState(socket);
 
-            console.log(`${username} joined group ${groupCode}.`);
-            
-            // Allow them in and send the dynamic HR name for that specific group!
-            socket.emit('join_success', { hrName: row.hr_name });
-            
-            // Send live update to Admin
-            if (adminSocketId) {
-                io.to(adminSocketId).emit('system_message', { type: 'info', text: `${username} just started the survey for group ${groupCode}.` });
-            }
+    // --- ADMIN CONFIG ---
+    socket.on('update_hr', (newName) => {
+        if (socket.id !== adminSocketId) return;
+        db.run("UPDATE config SET hr_name = ? WHERE id = 1", [newName], () => {
+            sendInitialState(io); 
+            socket.emit('system_message', { type: 'success', text: `Target changed to ${newName}` });
         });
     });
 
-    // Victim completes the survey
-    socket.on('quiz_finished', (data) => {
-        const { groupCode, username, pin } = data;
-        
-        // Save the vote to the database
-        db.run("INSERT INTO votes (group_code, username, pin) VALUES (?, ?, ?)", [groupCode, username, pin], function(err) {
-            if (!err) {
-                // Fetch the HR name again to show in the Admin alert
-                db.get("SELECT hr_name FROM groups WHERE group_code = ?", [groupCode], (err, row) => {
-                    if (row && adminSocketId) {
-                        io.to(adminSocketId).emit('system_message', { 
-                            type: 'success', 
-                            text: `🎯 GOT 'EM! ${username} (Group: ${groupCode}) just voted to fire ${row.hr_name}!` 
-                        });
-                        // Refresh the admin dashboard with the new DB data
-                        sendAdminDashboard(io.to(adminSocketId));
+    socket.on('reset_all', () => {
+        if (socket.id !== adminSocketId) return;
+        db.run("DELETE FROM users", () => {
+            sendInitialState(io);
+            socket.emit('system_message', { type: 'info', text: `All users deleted.` });
+        });
+    });
+
+    // --- PLAYER AUTH (Netflix Style) ---
+    socket.on('create_user', (data) => {
+        const { username, pin } = data;
+        db.run("INSERT INTO users (username, pin) VALUES (?, ?)", [username, pin], function(err) {
+            if (err) {
+                socket.emit('system_message', { type: 'error', text: 'Profile already exists! Try logging in.' });
+            } else {
+                db.get("SELECT hr_name FROM config WHERE id = 1", (err, row) => {
+                    socket.emit('login_success', { username, hrName: row.hr_name });
+                    sendInitialState(io); // Update screens for everyone
+                    if(adminSocketId) {
+                         io.to(adminSocketId).emit('system_message', { type: 'info', text: `${username} created a profile.` });
                     }
                 });
             }
         });
     });
 
-    socket.on('disconnect', () => {
-        if (socket.id === adminSocketId) {
-             console.log('Admin disconnected.');
-             // Note: IP lock remains active, so only people on this IP can join
-        }
+    socket.on('login_user', (data) => {
+        const { username, pin } = data;
+        db.get("SELECT * FROM users WHERE username = ? AND pin = ?", [username, pin], (err, user) => {
+            if (user) {
+                if (user.has_voted) {
+                    socket.emit('system_message', { type: 'error', text: 'You have already submitted your mandatory feedback!' });
+                    return;
+                }
+                db.get("SELECT hr_name FROM config WHERE id = 1", (err, row) => {
+                    socket.emit('login_success', { username, hrName: row.hr_name });
+                });
+            } else {
+                socket.emit('system_message', { type: 'error', text: 'Incorrect PIN.' });
+            }
+        });
+    });
+
+    // --- PRANK COMPLETION ---
+    socket.on('quiz_finished', (username) => {
+        db.run("UPDATE users SET has_voted = 1 WHERE username = ?", [username], () => {
+            db.get("SELECT hr_name FROM config WHERE id = 1", (err, row) => {
+                if (adminSocketId) {
+                    io.to(adminSocketId).emit('system_message', { 
+                        type: 'success', 
+                        text: `🎯 GOT 'EM! ${username} just voted to fire ${row.hr_name}!` 
+                    });
+                }
+                sendInitialState(io); // Updates the "has_voted" status on the profile select screen
+            });
+        });
     });
 });
 
-// Helper function to send the full database state to the Admin UI
-function sendAdminDashboard(socketTarget) {
-    db.all("SELECT * FROM groups", (err, groups) => {
-        if (err) return;
-        db.all("SELECT * FROM votes ORDER BY timestamp DESC LIMIT 20", (err, votes) => {
-            if (err) return;
-            socketTarget.emit('dashboard_update', { groups, votes });
+function sendInitialState(target) {
+    db.get("SELECT hr_name FROM config WHERE id = 1", (err, config) => {
+        db.all("SELECT id, username, has_voted FROM users", (err, users) => {
+            target.emit('state_update', { 
+                hrName: config ? config.hr_name : 'HR',
+                users: users || []
+            });
         });
     });
 }

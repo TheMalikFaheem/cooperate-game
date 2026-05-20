@@ -176,6 +176,71 @@ li {
 }
 
 /* Toast notifications */
+.profiles-grid {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.profile-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    transition: transform 0.2s;
+    opacity: 1;
+}
+
+.profile-card.voted {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.profile-card:hover:not(.voted) {
+    transform: scale(1.1);
+}
+
+.profile-card .avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 8px;
+    background: var(--primary);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 3.5rem;
+    font-weight: bold;
+    color: white;
+    margin-bottom: 0.5rem;
+    border: 3px solid transparent;
+    transition: border-color 0.2s;
+}
+
+.profile-card:hover:not(.voted) .avatar {
+    border-color: white;
+}
+
+.profile-card.add-profile .avatar {
+    background: transparent;
+    border: 3px solid #475569;
+    color: #475569;
+}
+
+.profile-card.add-profile:hover .avatar {
+    background: rgba(255,255,255,0.05);
+    border-color: #94a3b8;
+    color: #94a3b8;
+}
+
+.profile-card .name {
+    font-weight: 600;
+    color: #cbd5e1;
+    font-size: 1.1rem;
+}
+
 #toast-container {
     position: fixed;
     bottom: 20px;

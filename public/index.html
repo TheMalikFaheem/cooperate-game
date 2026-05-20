@@ -9,42 +9,60 @@
 </head>
 <body>
     <div id="app">
-        <!-- Error / Access Denied Overlay -->
+        <!-- Error Overlay -->
         <div id="denied-screen" class="hidden glass-panel fullscreen-overlay">
             <h1>Security Block 🔒</h1>
             <p id="denied-message"></p>
         </div>
 
-        <header>
+        <header id="main-header">
             <h1>Company <span class="highlight">Feedback</span></h1>
             <div id="admin-badge" class="hidden">★ ADMIN</div>
         </header>
 
         <main>
-            <!-- Admin Live Dashboard (Now powered by Database) -->
-            <section id="admin-live-screen" class="hidden glass-panel">
-                <h2>Live Database Dashboard</h2>
-                <p style="margin-top: 1rem; color: #94a3b8;">Share these Group Codes with your team to trigger their specific HR targets.</p>
-                
-                <div id="groups-container" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
-                    <!-- Database groups injected here via JS -->
+            <!-- Admin Settings Screen -->
+            <section id="admin-screen" class="hidden glass-panel" style="margin-bottom: 2rem;">
+                <h2>Admin Configuration</h2>
+                <div class="input-group">
+                    <input type="text" id="admin-hr-input" placeholder="Change HR Target Name">
+                    <button id="admin-save-btn" class="btn-primary" style="width: auto;">Save</button>
                 </div>
+                <button id="admin-reset-btn" class="btn-danger mt-2">Delete All Users & Votes</button>
+            </section>
 
-                <div class="players-list-container" style="margin-top: 2rem;">
-                    <h3>Recent Victims (Votes Submitted)</h3>
-                    <ul id="votes-list"></ul>
+            <!-- Netflix Style Profile Selector -->
+            <section id="profiles-screen" class="hidden">
+                <h2 class="text-center" style="font-size: 2rem; margin-bottom: 2rem;">Who's taking the survey?</h2>
+                <div id="profiles-container" class="profiles-grid">
+                    <!-- Dynamic Profiles Injected Here -->
+                    <div class="profile-card add-profile" id="btn-show-add">
+                        <div class="avatar">+</div>
+                        <div class="name">Add User</div>
+                    </div>
                 </div>
             </section>
 
-            <!-- Player Login Screen -->
-            <section id="login-screen" class="hidden glass-panel">
-                <h2>Secure Employee Login</h2>
-                <p style="margin-bottom: 1rem; color: #94a3b8; font-size: 0.9rem;">Please enter your credentials to access the mandatory quarterly feedback survey.</p>
-                <div id="login-form" class="input-group-col">
-                    <input type="text" id="join-group-code" placeholder="Secret Group Code (e.g. ENG2024)">
-                    <input type="text" id="join-username" placeholder="Your Username / Display Name">
-                    <input type="password" id="join-pin" placeholder="Secret PIN Code">
-                    <button id="join-btn" class="btn-primary">Access Survey</button>
+            <!-- Enter PIN Overlay -->
+            <section id="pin-screen" class="hidden glass-panel fullscreen-overlay">
+                <h2 id="pin-prompt" style="margin-bottom: 1rem;">Enter PIN</h2>
+                <input type="password" id="login-pin" placeholder="••••" maxlength="4" style="text-align: center; font-size: 2rem; letter-spacing: 10px; max-width: 200px;">
+                <div class="input-group" style="justify-content: center; margin-top: 1.5rem; gap: 1rem;">
+                    <button id="pin-cancel-btn" class="btn-secondary" style="width: auto;">Cancel</button>
+                    <button id="pin-submit-btn" class="btn-primary" style="width: auto;">Login</button>
+                </div>
+            </section>
+
+            <!-- Add User Overlay -->
+            <section id="add-user-screen" class="hidden glass-panel fullscreen-overlay">
+                <h2 style="margin-bottom: 1rem;">Create Profile</h2>
+                <div class="input-group-col" style="max-width: 300px; width: 100%;">
+                    <input type="text" id="new-username" placeholder="Your Display Name" maxlength="15">
+                    <input type="password" id="new-pin" placeholder="Create a 4-Digit PIN" maxlength="4" style="letter-spacing: 5px;">
+                    <div class="input-group" style="justify-content: space-between; margin-top: 1rem;">
+                        <button id="add-cancel-btn" class="btn-secondary" style="width: 48%;">Cancel</button>
+                        <button id="add-submit-btn" class="btn-primary" style="width: 48%;">Create</button>
+                    </div>
                 </div>
             </section>
 
@@ -52,9 +70,7 @@
             <section id="quiz-screen" class="hidden glass-panel">
                 <div id="question-container">
                     <h2 id="question-text">Question 1</h2>
-                    <div id="options-container" class="input-group-col">
-                        <!-- Options injected here via JS -->
-                    </div>
+                    <div id="options-container" class="input-group-col"></div>
                 </div>
                 <div id="finish-container" class="hidden text-center">
                     <h2>Survey Submitted! ✅</h2>
