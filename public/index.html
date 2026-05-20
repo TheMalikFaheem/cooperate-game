@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cutthroat Corporation</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Error / Access Denied Overlay -->
+        <div id="denied-screen" class="hidden glass-panel fullscreen-overlay">
+            <h1>Access Denied 🔒</h1>
+            <p id="denied-message"></p>
+        </div>
+
+        <header>
+            <h1>CUTTHROAT <span class="highlight">CORP</span></h1>
+            <div id="admin-badge" class="hidden">★ ADMIN</div>
+        </header>
+
+        <main>
+            <!-- Lobby Screen -->
+            <section id="lobby-screen" class="glass-panel">
+                <h2>Join the Syndicate</h2>
+                <div class="input-group">
+                    <input type="text" id="player-name" placeholder="Enter Alias..." maxlength="12">
+                    <button id="join-btn" class="btn-primary">Connect</button>
+                </div>
+                
+                <div class="players-list-container">
+                    <h3>Connected Executives (<span id="player-count">0</span>)</h3>
+                    <ul id="players-list"></ul>
+                </div>
+
+                <div id="admin-controls" class="hidden">
+                    <button id="start-btn" class="btn-danger">Initialize Operations</button>
+                </div>
+            </section>
+
+            <!-- Game Screen -->
+            <section id="game-screen" class="hidden glass-panel">
+                <div id="role-container" class="role-card">
+                    <h3>Your Secret Role:</h3>
+                    <h2 id="role-name">CLASSIFIED</h2>
+                    <p id="role-desc"></p>
+                </div>
+                <div id="game-status">
+                    <p>Waiting for corporate directives...</p>
+                </div>
+                <div id="admin-game-controls" class="hidden mt-4">
+                    <button id="reset-btn" class="btn-secondary">Abort & Reset</button>
+                </div>
+            </section>
+        </main>
+
+        <div id="toast-container"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>
