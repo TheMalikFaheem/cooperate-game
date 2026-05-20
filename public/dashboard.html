@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — GuessME</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+    <!-- HEADER -->
+    <header class="app-header">
+        <div class="header-left">
+            <div class="logo">💬 GuessME</div>
+        </div>
+        <div class="header-right">
+            <span class="admin-name" id="header-name"></span>
+            <button class="btn-ghost" id="logout-btn" style="padding: 0.4rem 1rem; font-size: 0.85rem;">Logout</button>
+        </div>
+    </header>
+
+    <div class="dashboard-layout">
+        <!-- SIDEBAR: Room List -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <p class="sidebar-label">My Rooms</p>
+                <button class="btn-icon" id="new-room-btn" title="Create new room">+</button>
+            </div>
+            <div id="rooms-list" class="rooms-list">
+                <div class="empty-rooms" id="no-rooms">
+                    <p>No rooms yet.</p>
+                    <p>Create one to get started!</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN: Active Room Dashboard -->
+        <main class="dash-main" id="dash-main">
+            <!-- No room selected state -->
+            <div class="no-room-selected" id="no-room-selected">
+                <div class="nrs-icon">🎯</div>
+                <h2>Select or Create a Room</h2>
+                <p>Create a room, share the link with your group,<br>then set a person's name to start collecting anonymous messages.</p>
+                <button class="btn-dark" id="create-first-room">Create Your First Room</button>
+            </div>
+
+            <!-- Room Dashboard -->
+            <div id="room-dashboard" class="hidden">
+                <!-- Top bar -->
+                <div class="dash-topbar">
+                    <div class="dash-topbar-left">
+                        <h1 class="page-title" id="room-title">Room Name</h1>
+                        <div class="share-link-row">
+                            <span class="share-label">Share link:</span>
+                            <code class="share-link" id="share-link-display"></code>
+                            <button class="btn-copy" id="copy-link-btn">Copy</button>
+                        </div>
+                    </div>
+                    <div class="dash-topbar-right">
+                        <button class="btn-outline-danger" id="delete-room-btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Delete Room</button>
+                    </div>
+                </div>
+
+                <!-- Round Control -->
+                <div class="round-control glass-card">
+                    <div class="round-left">
+                        <p class="sidebar-label">Current Target</p>
+                        <div class="current-target-display" id="current-target-display">
+                            <span id="current-target-name">No target set</span>
+                        </div>
+                    </div>
+                    <div class="round-right">
+                        <p class="sidebar-label">Start New Round</p>
+                        <div class="round-input-row">
+                            <input type="text" id="new-target-input" placeholder="Enter person's name..." class="round-input">
+                            <button class="btn-dark" id="start-round-btn">Start →</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Messages Header -->
+                <div class="messages-header">
+                    <div>
+                        <h2 class="section-title">Anonymous Messages</h2>
+                        <p class="section-sub" id="messages-sub">Waiting for messages...</p>
+                    </div>
+                    <button class="btn-outline-danger" id="clear-btn" style="font-size:0.8rem; padding: 0.4rem 0.9rem;">Clear Messages</button>
+                </div>
+
+                <!-- Messages Grid -->
+                <div id="messages-grid" class="messages-grid">
+                    <div class="empty-state" id="empty-state">
+                        <div class="empty-icon">📭</div>
+                        <p>No messages yet. Start a round and share the room link!</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Create Room Modal -->
+<div id="create-room-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div class="modal-icon">🏠</div>
+            <h3>Create a Room</h3>
+            <p>Give your room a name (e.g. "Office Roast 2024")</p>
+        </div>
+        <div class="form-group">
+            <label>Room Name</label>
+            <input type="text" id="room-name-input" placeholder="e.g. Office Roast 2024" maxlength="40">
+        </div>
+        <div class="modal-actions">
+            <button class="btn-ghost" id="cancel-room-modal">Cancel</button>
+            <button class="btn-dark" id="confirm-create-room">Create Room</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="dashboard.js"></script>
+</body>
+</html>

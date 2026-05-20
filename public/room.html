@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GuessME — Leave a Message</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header class="app-header">
+    <div class="header-left">
+        <div class="logo">💬 GuessME</div>
+    </div>
+</header>
+
+<div class="public-layout">
+    <!-- Loading state -->
+    <div id="loading-state" class="public-card text-center" style="padding: 3rem;">
+        <p style="color: var(--text-muted);">Loading room...</p>
+    </div>
+
+    <!-- Not found -->
+    <div id="not-found-state" class="public-card text-center hidden" style="padding: 3rem;">
+        <div style="font-size:3rem; margin-bottom:1rem;">😕</div>
+        <h2>Room Not Found</h2>
+        <p style="color: var(--text-muted); margin-top: 0.5rem;">This link might be invalid or the room was deleted.</p>
+    </div>
+
+    <!-- No active round -->
+    <div id="waiting-state" class="public-card text-center hidden">
+        <div style="font-size:3rem; margin-bottom:1rem;">⏳</div>
+        <h2 id="waiting-room-name">Waiting...</h2>
+        <p style="color: var(--text-muted); margin-top: 0.5rem;">The admin hasn't started a round yet. Hang tight!</p>
+        <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 1rem;">This page will automatically update.</p>
+    </div>
+
+    <!-- Active round - write message -->
+    <div id="write-state" class="public-card hidden">
+        <div class="public-header">
+            <div class="avatar-ring" id="target-avatar">?</div>
+            <h2 id="target-name-display">Name</h2>
+            <p class="public-sub">Write an anonymous message about this person</p>
+        </div>
+
+        <div id="form-section">
+            <div class="form-group">
+                <textarea id="message-input" placeholder="Be honest, be funny, be kind... or not 😈" rows="5" maxlength="500"></textarea>
+                <div class="char-counter"><span id="char-count">0</span> / 500</div>
+            </div>
+            <button class="btn-dark full-width" id="send-btn">Send Anonymously 🚀</button>
+        </div>
+
+        <div id="sent-section" class="hidden text-center" style="padding: 1.5rem 0;">
+            <div style="font-size:3.5rem; margin-bottom:1rem;">✅</div>
+            <h3>Message Sent!</h3>
+            <p style="color: var(--text-muted); margin-top:0.4rem;">Your anonymous message has been delivered.</p>
+            <button class="btn-outline" id="send-another-btn" style="margin-top: 1.5rem;">Send Another</button>
+        </div>
+
+        <div class="public-footer">🔒 100% Anonymous — No login required</div>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/room.js"></script>
+</body>
+</html>

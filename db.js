@@ -5,24 +5,38 @@ const fs = require('fs');
 const dataDir = path.resolve(__dirname, 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-const db = new sqlite3.Database(path.resolve(dataDir, 'game.db'));
+const db = new sqlite3.Database(path.resolve(dataDir, 'guessme.db'));
 
 db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS config (
-        id INTEGER PRIMARY KEY,
-        target_name TEXT DEFAULT 'Waiting...'
+    // Admin accounts
+    db.run(`CREATE TABLE IF NOT EXISTS admins (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    // Rooms - each admin can have many rooms
+    db.run(`CREATE TABLE IF NOT EXISTS rooms (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        admin_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        slug TEXT UNIQUE NOT NULL,
+        current_target TEXT DEFAULT '',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (admin_id) REFERENCES admins(id)
+    )`);
+
+    // Anonymous messages per room + target
     db.run(`CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        target_name TEXT,
-        message TEXT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        room_id INTEGER NOT NULL,
+        target_name TEXT NOT NULL,
+        message TEXT NOT NULL,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (room_id) REFERENCES rooms(id)
     )`);
-
-    db.get("SELECT COUNT(*) as c FROM config", (err, row) => {
-        if (row && row.c === 0) db.run("INSERT INTO config (id, target_name) VALUES (1, 'Waiting...')");
-    });
 });
 
 module.exports = db;

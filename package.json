@@ -1,13 +1,16 @@
 {
-  "name": "fun-game",
-  "version": "1.0.0",
-  "description": "Cutthroat Corporation - A local network deception game",
+  "name": "guessme",
+  "version": "2.0.0",
+  "description": "GuessME - Anonymous Reviews Platform",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
+    "bcrypt": "^5.1.1",
+    "connect-sqlite3": "^0.9.13",
     "express": "^4.18.2",
+    "express-session": "^1.17.3",
     "socket.io": "^4.7.2",
     "sqlite3": "^5.1.7"
   }
