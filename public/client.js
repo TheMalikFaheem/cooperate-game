@@ -1,189 +1,190 @@
 const socket = io();
 
-// UI Elements
-const deniedScreen = document.getElementById('denied-screen');
-const adminBadge = document.getElementById('admin-badge');
-const adminScreen = document.getElementById('admin-screen');
+// Elements
+const adminModal = document.getElementById('admin-modal');
+const openAdminModal = document.getElementById('open-admin-modal');
+const modalCancel = document.getElementById('modal-cancel');
+const modalSubmit = document.getElementById('modal-submit');
+const modalUsername = document.getElementById('modal-username');
+const modalPassword = document.getElementById('modal-password');
 
-const profilesScreen = document.getElementById('profiles-screen');
-const profilesContainer = document.getElementById('profiles-container');
-const btnShowAdd = document.getElementById('btn-show-add');
+const adminView = document.getElementById('admin-view');
+const publicView = document.getElementById('public-view');
 
-const pinScreen = document.getElementById('pin-screen');
-const pinPrompt = document.getElementById('pin-prompt');
-const loginPinInput = document.getElementById('login-pin');
+// Admin elements
+const adminNameInput = document.getElementById('admin-name-input');
+const startRoundBtn = document.getElementById('start-round-btn');
+const clearBtn = document.getElementById('clear-btn');
+const messagesGrid = document.getElementById('messages-grid');
+const emptyState = document.getElementById('empty-state');
+const sidebarTarget = document.getElementById('sidebar-target');
+const topbarTarget = document.getElementById('topbar-target');
+const msgCount = document.getElementById('msg-count');
 
-const addUserScreen = document.getElementById('add-user-screen');
-const newUsername = document.getElementById('new-username');
-const newPin = document.getElementById('new-pin');
-
-const reviewScreen = document.getElementById('review-screen');
-const reviewTargetName = document.getElementById('review-target-name');
-const reviewText = document.getElementById('review-text');
-const submitReviewBtn = document.getElementById('submit-review-btn');
-
-const waitingScreen = document.getElementById('waiting-screen');
+// Public elements
+const publicTargetName = document.getElementById('public-target-name');
+const targetAvatar = document.getElementById('target-avatar');
+const messageInput = document.getElementById('message-input');
+const sendBtn = document.getElementById('send-btn');
+const writeSection = document.getElementById('write-section');
+const sentSection = document.getElementById('sent-section');
+const sendAnotherBtn = document.getElementById('send-another-btn');
+const charCount = document.getElementById('char-count');
 
 let isAdmin = false;
-let myUsername = "";
-let selectedProfile = "";
-let currentTarget = "";
 
-// --- SOCKET EVENTS ---
-socket.on('access_denied', (msg) => {
-    deniedScreen.classList.remove('hidden');
-    document.getElementById('denied-message').textContent = msg;
-});
+// =====================
+// ADMIN MODAL
+// =====================
+openAdminModal.onclick = () => {
+    modalUsername.value = '';
+    modalPassword.value = '';
+    adminModal.classList.remove('hidden');
+    setTimeout(() => modalUsername.focus(), 100);
+};
 
-socket.on('admin_status', (status) => {
-    isAdmin = status;
-    if (isAdmin) {
-        adminBadge.classList.remove('hidden');
-        adminScreen.classList.remove('hidden');
+modalCancel.onclick = () => adminModal.classList.add('hidden');
+
+adminModal.onclick = (e) => { if (e.target === adminModal) adminModal.classList.add('hidden'); };
+
+modalSubmit.onclick = submitAdminLogin;
+modalPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAdminLogin(); });
+
+function submitAdminLogin() {
+    const username = modalUsername.value.trim();
+    const password = modalPassword.value.trim();
+    if (!username || !password) return showToast('Enter username and password', 'error');
+    socket.emit('admin_login', { username, password });
+}
+
+// =====================
+// SOCKET EVENTS
+// =====================
+socket.on('admin_auth', (success) => {
+    if (success) {
+        isAdmin = true;
+        adminModal.classList.add('hidden');
+        openAdminModal.textContent = '★ Admin';
+        openAdminModal.style.background = '#1a1a1a';
+        openAdminModal.style.color = 'white';
+        openAdminModal.style.borderColor = '#1a1a1a';
+        openAdminModal.onclick = null;
+
+        publicView.classList.add('hidden');
+        adminView.classList.remove('hidden');
+        showToast('Welcome back, Admin!', 'success');
+    } else {
+        showToast('Invalid credentials', 'error');
+        modalPassword.value = '';
+        modalPassword.focus();
     }
 });
-
-socket.on('system_message', (msg) => showToast(msg.text, msg.type));
 
 socket.on('state_update', (data) => {
-    // Admin specific updates
-    if (isAdmin) {
-        document.getElementById('admin-current-target').textContent = data.targetName;
-        const msgList = document.getElementById('admin-messages-list');
-        msgList.innerHTML = '';
-        if (data.messages.length === 0) {
-            msgList.innerHTML = '<li style="color: #94a3b8; font-style: italic; background: transparent;">No messages yet for this person...</li>';
-        } else {
-            data.messages.forEach(m => {
-                const li = document.createElement('li');
-                li.style.flexDirection = 'column';
-                li.style.alignItems = 'flex-start';
-                li.innerHTML = `<span style="color:#cbd5e1; font-size:1.2rem; margin-bottom: 0.5rem;">"${m.message}"</span> <strong style="font-size: 0.8rem; color: var(--primary);">— ${m.author}</strong>`;
-                msgList.appendChild(li);
-            });
-        }
-    }
+    const name = data.targetName || 'Waiting...';
+    const waiting = name === 'Waiting...' || name === 'Waiting';
 
-    // Update profiles if user is not logged in yet
-    if (myUsername === "") {
-        profilesScreen.classList.remove('hidden');
-        renderProfiles(data.users);
-    } else {
-        // If logged in but the Admin started a new round with a new target, refresh the state
-        if (currentTarget !== data.targetName) {
-            socket.emit('login_user', { username: myUsername, pin: window.mySecretPin });
-        }
-    }
+    // Update public view
+    publicTargetName.textContent = name;
+    targetAvatar.textContent = waiting ? '?' : name.charAt(0).toUpperCase();
+
+    // Update admin view
+    sidebarTarget.textContent = name;
+    topbarTarget.textContent = name;
+    msgCount.textContent = data.total || 0;
+
+    // Render message cards (admin only)
+    if (isAdmin) renderMessages(data.messages);
 });
 
-socket.on('login_success', (data) => {
-    myUsername = data.username;
-    currentTarget = data.targetName;
-    
-    pinScreen.classList.add('hidden');
-    addUserScreen.classList.add('hidden');
-    profilesScreen.classList.add('hidden');
-    adminScreen.classList.add('hidden');
-    document.getElementById('main-header').classList.add('hidden');
-    
-    if (data.hasSubmittedForCurrentRound || currentTarget.includes("Waiting")) {
-        reviewScreen.classList.add('hidden');
-        waitingScreen.classList.remove('hidden');
-        
-        if (currentTarget.includes("Waiting")) {
-            waitingScreen.innerHTML = `<h2>Please Wait...</h2><p style="color:#94a3b8; margin-top:1rem;">The admin is selecting the next person to review.</p>`;
-        } else {
-            waitingScreen.innerHTML = `<h2>Message Sent! ✅</h2><p style="color:#94a3b8; margin-top:1rem;">Waiting for everyone else to finish reviewing <strong>${currentTarget}</strong>...</p>`;
-        }
-    } else {
-        waitingScreen.classList.add('hidden');
-        reviewScreen.classList.remove('hidden');
-        reviewTargetName.textContent = currentTarget;
-        reviewText.value = ''; // clear previous
+socket.on('submit_ok', () => {
+    writeSection.classList.add('hidden');
+    sentSection.classList.remove('hidden');
+    messageInput.value = '';
+    charCount.textContent = '0';
+});
+
+// =====================
+// ADMIN ACTIONS
+// =====================
+startRoundBtn.onclick = () => {
+    const name = adminNameInput.value.trim();
+    if (!name) return showToast('Enter a name to start the round', 'error');
+    socket.emit('new_round', name);
+    adminNameInput.value = '';
+    showToast(`Round started for ${name}!`, 'success');
+};
+
+clearBtn.onclick = () => {
+    if (confirm('Clear all messages for the current round?')) {
+        socket.emit('clear_messages');
+        showToast('Messages cleared', 'success');
     }
+};
+
+adminNameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') startRoundBtn.click();
 });
 
-socket.on('submission_success', () => {
-    reviewScreen.classList.add('hidden');
-    waitingScreen.classList.remove('hidden');
-    waitingScreen.innerHTML = `<h2>Message Sent! ✅</h2><p style="color:#94a3b8; margin-top:1rem;">Waiting for everyone else to finish reviewing <strong>${currentTarget}</strong>...</p>`;
+// =====================
+// PUBLIC ACTIONS
+// =====================
+messageInput.addEventListener('input', () => {
+    const len = messageInput.value.length;
+    charCount.textContent = len;
+    if (len > 300) messageInput.value = messageInput.value.substring(0, 300);
 });
 
-// --- RENDER PROFILES ---
-function renderProfiles(users) {
-    document.querySelectorAll('.profile-card:not(.add-profile)').forEach(el => el.remove());
-    
-    users.forEach(user => {
+sendBtn.onclick = () => {
+    const text = messageInput.value.trim();
+    if (!text) return showToast('Please write a message first!', 'error');
+    socket.emit('submit_message', text);
+};
+
+sendAnotherBtn.onclick = () => {
+    sentSection.classList.add('hidden');
+    writeSection.classList.remove('hidden');
+};
+
+// =====================
+// RENDER MESSAGES
+// =====================
+function renderMessages(messages) {
+    // Remove all existing cards
+    document.querySelectorAll('.message-card').forEach(el => el.remove());
+
+    if (!messages || messages.length === 0) {
+        emptyState.classList.remove('hidden');
+        return;
+    }
+    emptyState.classList.add('hidden');
+
+    messages.forEach(m => {
         const card = document.createElement('div');
-        card.className = `profile-card`;
-        
-        const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'];
-        const color = colors[user.username.length % colors.length];
-
+        card.className = 'message-card';
+        const time = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         card.innerHTML = `
-            <div class="avatar" style="background: ${color}">${user.username.charAt(0).toUpperCase()}</div>
-            <div class="name">${user.username}</div>
+            <p class="message-text">${escapeHtml(m.message)}</p>
+            <div class="message-meta">
+                <span class="anonymous-tag">Anonymous</span>
+                <span>${time}</span>
+            </div>
         `;
-        
-        card.onclick = () => {
-            selectedProfile = user.username;
-            pinPrompt.textContent = `Enter PIN for ${user.username}`;
-            loginPinInput.value = '';
-            pinScreen.classList.remove('hidden');
-        };
-        
-        profilesContainer.insertBefore(card, btnShowAdd);
+        messagesGrid.appendChild(card);
     });
 }
 
-// --- BUTTON LISTENERS ---
-btnShowAdd.onclick = () => {
-    newUsername.value = '';
-    newPin.value = '';
-    addUserScreen.classList.remove('hidden');
-};
+function escapeHtml(text) {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
-document.getElementById('add-cancel-btn').onclick = () => addUserScreen.classList.add('hidden');
-document.getElementById('pin-cancel-btn').onclick = () => pinScreen.classList.add('hidden');
-
-document.getElementById('add-submit-btn').onclick = () => {
-    const user = newUsername.value.trim();
-    const pin = newPin.value.trim();
-    if (!user || !pin) return showToast('Name and PIN are required!', 'error');
-    window.mySecretPin = pin; // save to auto-login on new rounds
-    socket.emit('create_user', { username: user, pin: pin });
-};
-
-document.getElementById('pin-submit-btn').onclick = () => {
-    const pin = loginPinInput.value.trim();
-    if (!pin) return showToast('Please enter your PIN', 'error');
-    window.mySecretPin = pin;
-    socket.emit('login_user', { username: selectedProfile, pin: pin });
-};
-
-submitReviewBtn.onclick = () => {
-    const text = reviewText.value.trim();
-    if(!text) return showToast('You must write something!', 'error');
-    socket.emit('submit_message', { username: myUsername, message: text });
-};
-
-// Admin config
-document.getElementById('admin-start-btn').onclick = () => {
-    const target = document.getElementById('admin-target-input').value.trim();
-    if(target) socket.emit('new_round', target);
-};
-document.getElementById('admin-reset-btn').onclick = () => {
-    if(confirm('Wipe everything? All users and messages will be lost.')) socket.emit('reset_all_users');
-};
-
+// =====================
+// TOAST
+// =====================
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = message;
-    
     document.getElementById('toast-container').appendChild(toast);
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 300);
-    }, 4000);
+    setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = '0.3s'; setTimeout(() => toast.remove(), 300); }, 3500);
 }

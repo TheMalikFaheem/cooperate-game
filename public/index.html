@@ -2,94 +2,140 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Who Said That?</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guess Who Said That</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="app">
-        <!-- Error Overlay -->
-        <div id="denied-screen" class="hidden glass-panel fullscreen-overlay">
-            <h1>Security Block 🔒</h1>
-            <p id="denied-message"></p>
+
+<!-- ===== ADMIN MODAL ===== -->
+<div id="admin-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div class="modal-icon">🔐</div>
+            <h3>Admin Login</h3>
+            <p>Enter your credentials to access the dashboard</p>
         </div>
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="modal-username" placeholder="admin" autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="modal-password" placeholder="••••••••">
+        </div>
+        <div class="modal-actions">
+            <button class="btn-ghost" id="modal-cancel">Cancel</button>
+            <button class="btn-dark" id="modal-submit">Login</button>
+        </div>
+    </div>
+</div>
 
-        <header id="main-header">
-            <h1>GUESS <span class="highlight">WHO</span></h1>
-            <div id="admin-badge" class="hidden">★ ADMIN</div>
-        </header>
+<!-- ===== MAIN APP ===== -->
+<div id="app">
 
-        <main>
-            <!-- Admin Dashboard -->
-            <section id="admin-screen" class="hidden glass-panel" style="margin-bottom: 2rem;">
-                <h2>Admin Dashboard</h2>
-                <div class="input-group">
-                    <input type="text" id="admin-target-input" placeholder="Next person to review...">
-                    <button id="admin-start-btn" class="btn-primary" style="width: auto;">Start Round</button>
+    <!-- HEADER -->
+    <header class="app-header">
+        <div class="header-left">
+            <div class="logo">💬 GuessME</div>
+        </div>
+        <div class="header-right">
+            <button class="btn-admin-login" id="open-admin-modal">Admin Login</button>
+        </div>
+    </header>
+
+    <!-- ===== ADMIN VIEW ===== -->
+    <div id="admin-view" class="hidden">
+        <div class="admin-layout">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-brand">
+                    <div class="brand-icon">⚡</div>
+                    <span>Dashboard</span>
                 </div>
-                
-                <div class="messages-container mt-4">
-                    <h3>Messages about: <span id="admin-current-target" class="highlight"></span></h3>
-                    <ul id="admin-messages-list" style="margin-top: 1rem;"></ul>
-                </div>
 
-                <button id="admin-reset-btn" class="btn-secondary mt-4">Delete All Users & History</button>
-            </section>
-
-            <!-- Netflix Style Profile Selector -->
-            <section id="profiles-screen" class="hidden">
-                <h2 class="text-center" style="font-size: 2rem; margin-bottom: 2rem;">Who's playing?</h2>
-                <div id="profiles-container" class="profiles-grid">
-                    <div class="profile-card add-profile" id="btn-show-add">
-                        <div class="avatar">+</div>
-                        <div class="name">Add User</div>
+                <div class="sidebar-section">
+                    <p class="sidebar-label">Current Round</p>
+                    <div class="current-target-box">
+                        <span id="sidebar-target">—</span>
                     </div>
                 </div>
-            </section>
 
-            <!-- Enter PIN Overlay -->
-            <section id="pin-screen" class="hidden glass-panel fullscreen-overlay">
-                <h2 id="pin-prompt" style="margin-bottom: 1rem;">Enter PIN</h2>
-                <input type="password" id="login-pin" placeholder="••••" maxlength="4" style="text-align: center; font-size: 2rem; letter-spacing: 10px; max-width: 200px;">
-                <div class="input-group" style="justify-content: center; margin-top: 1.5rem; gap: 1rem;">
-                    <button id="pin-cancel-btn" class="btn-secondary" style="width: auto;">Cancel</button>
-                    <button id="pin-submit-btn" class="btn-primary" style="width: auto;">Login</button>
+                <div class="sidebar-section">
+                    <p class="sidebar-label">Start New Round</p>
+                    <input type="text" id="admin-name-input" class="sidebar-input" placeholder="Enter person's name...">
+                    <button class="btn-dark full-width" id="start-round-btn">Start Round →</button>
                 </div>
-            </section>
 
-            <!-- Add User Overlay -->
-            <section id="add-user-screen" class="hidden glass-panel fullscreen-overlay">
-                <h2 style="margin-bottom: 1rem;">Create Profile</h2>
-                <div class="input-group-col" style="max-width: 300px; width: 100%;">
-                    <input type="text" id="new-username" placeholder="Your Display Name" maxlength="15">
-                    <input type="password" id="new-pin" placeholder="Create a 4-Digit PIN" maxlength="4" style="letter-spacing: 5px;">
-                    <div class="input-group" style="justify-content: space-between; margin-top: 1rem;">
-                        <button id="add-cancel-btn" class="btn-secondary" style="width: 48%;">Cancel</button>
-                        <button id="add-submit-btn" class="btn-primary" style="width: 48%;">Create</button>
+                <div class="sidebar-section" style="margin-top: auto;">
+                    <button class="btn-outline-danger full-width" id="clear-btn">Clear All Messages</button>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="admin-main">
+                <div class="admin-topbar">
+                    <div>
+                        <h1 class="page-title">Messages</h1>
+                        <p class="page-sub">Anonymous reviews about <strong id="topbar-target">—</strong></p>
+                    </div>
+                    <div class="stat-badge">
+                        <span id="msg-count">0</span> messages
                     </div>
                 </div>
-            </section>
 
-            <!-- Write Review Screen -->
-            <section id="review-screen" class="hidden glass-panel text-center">
-                <h2>Spill the tea on: <br><span id="review-target-name" class="highlight" style="font-size: 2.5rem; display: block; margin: 10px 0;"></span></h2>
-                <textarea id="review-text" rows="4" placeholder="Write something funny, a memory, or an anonymous review..."></textarea>
-                <button id="submit-review-btn" class="btn-primary mt-4">Send Anonymously</button>
-            </section>
-
-            <!-- Waiting Screen -->
-            <section id="waiting-screen" class="hidden glass-panel text-center">
-                <h2>Message Sent! ✅</h2>
-                <p style="margin-top: 1rem; color: #94a3b8;">Waiting for everyone else to finish...</p>
-                <p style="font-size: 0.9rem; color: #64748b; margin-top: 2rem;">The screen will automatically refresh when the admin starts the next round.</p>
-            </section>
-        </main>
-
-        <div id="toast-container"></div>
+                <div id="messages-grid" class="messages-grid">
+                    <div class="empty-state" id="empty-state">
+                        <div class="empty-icon">📭</div>
+                        <p>No messages yet. Start a round and share the link!</p>
+                    </div>
+                </div>
+            </main>
+        </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="client.js"></script>
+    <!-- ===== PUBLIC VIEW ===== -->
+    <div id="public-view">
+        <div class="public-layout">
+            <div class="public-card">
+                <div class="public-header">
+                    <div class="avatar-ring" id="target-avatar">?</div>
+                    <h2 id="public-target-name">Loading...</h2>
+                    <p class="public-sub">Write an anonymous message about this person</p>
+                </div>
+
+                <div id="write-section">
+                    <textarea id="message-input" placeholder="Be honest, be funny, be kind... or not 😈" rows="5"></textarea>
+                    <div class="char-counter"><span id="char-count">0</span> / 300</div>
+                    <button class="btn-dark full-width" id="send-btn" style="margin-top: 1rem;">
+                        Send Anonymously 🚀
+                    </button>
+                </div>
+
+                <div id="sent-section" class="hidden">
+                    <div class="success-state">
+                        <div class="success-icon">✅</div>
+                        <h3>Message Sent!</h3>
+                        <p>Your anonymous message has been delivered.</p>
+                        <button class="btn-outline" id="send-another-btn" style="margin-top: 1.5rem;">Send Another</button>
+                    </div>
+                </div>
+
+                <div class="public-footer">
+                    <span>🔒 100% Anonymous — No login required</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- TOAST -->
+<div id="toast-container"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="client.js"></script>
 </body>
 </html>

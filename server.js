@@ -12,111 +12,67 @@ const io = new Server(server);
 const PORT = process.env.PORT || 4000;
 app.use(express.static(path.join(__dirname, 'public')));
 
-let adminIp = null;
-let adminSocketId = null;
+// Admin credentials (change these before deploying!)
+const ADMIN_USER = 'admin';
+const ADMIN_PASS = 'letmein123';
+const adminSockets = new Set();
 
-io.on('connection', (socket) => {
-    const rawIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
-    const clientIp = rawIp.split(',')[0].trim();
-    
-    // IP LOCKING
-    if (!adminIp) {
-        adminIp = clientIp;
-        adminSocketId = socket.id;
-        socket.emit('admin_status', true);
-    } else {
-        if (clientIp !== adminIp && clientIp !== '::1' && clientIp !== '127.0.0.1') {
-            socket.emit('access_denied', 'Access Denied: Please connect to the local network.');
-            socket.disconnect(true);
-            return;
-        }
-        socket.emit('admin_status', false);
-    }
-
-    sendInitialState(socket);
-
-    // --- ADMIN CONFIG ---
-    socket.on('new_round', (newName) => {
-        if (socket.id !== adminSocketId) return;
-        db.run("UPDATE config SET target_name = ? WHERE id = 1", [newName], () => {
-            sendInitialState(io); 
-            socket.emit('system_message', { type: 'success', text: `New round started for ${newName}!` });
-        });
-    });
-
-    socket.on('reset_all_users', () => {
-        if (socket.id !== adminSocketId) return;
-        db.run("DELETE FROM users", () => {
-            db.run("DELETE FROM messages", () => {
-                sendInitialState(io);
-                socket.emit('system_message', { type: 'info', text: `Everything wiped.` });
-            });
-        });
-    });
-
-    // --- PLAYER AUTH (Netflix Style) ---
-    socket.on('create_user', (data) => {
-        const { username, pin } = data;
-        db.run("INSERT INTO users (username, pin) VALUES (?, ?)", [username, pin], function(err) {
-            if (err) {
-                socket.emit('system_message', { type: 'error', text: 'Profile already exists! Try logging in.' });
-            } else {
-                db.get("SELECT target_name FROM config WHERE id = 1", (err, row) => {
-                    socket.emit('login_success', { username, targetName: row.target_name });
-                    sendInitialState(io); 
-                });
-            }
-        });
-    });
-
-    socket.on('login_user', (data) => {
-        const { username, pin } = data;
-        db.get("SELECT * FROM users WHERE username = ? AND pin = ?", [username, pin], (err, user) => {
-            if (user) {
-                db.get("SELECT target_name FROM config WHERE id = 1", (err, config) => {
-                    db.get("SELECT id FROM messages WHERE target_name = ? AND author = ?", [config.target_name, username], (err, msg) => {
-                        socket.emit('login_success', { 
-                            username, 
-                            targetName: config.target_name,
-                            hasSubmittedForCurrentRound: !!msg 
-                        });
-                    });
-                });
-            } else {
-                socket.emit('system_message', { type: 'error', text: 'Incorrect PIN.' });
-            }
-        });
-    });
-
-    // --- SUBMIT MESSAGE ---
-    socket.on('submit_message', (data) => {
-        const { username, message } = data;
-        db.get("SELECT target_name FROM config WHERE id = 1", (err, config) => {
-            const target = config.target_name;
-            db.run("INSERT INTO messages (target_name, author, message) VALUES (?, ?, ?)", [target, username, message], () => {
-                socket.emit('submission_success');
-                sendInitialState(io); // Broadcast to update Admin dashboard live
-            });
-        });
-    });
-
-});
-
-function sendInitialState(target) {
+function sendState(target) {
     db.get("SELECT target_name FROM config WHERE id = 1", (err, config) => {
         const targetName = config ? config.target_name : 'Waiting...';
-        db.all("SELECT id, username FROM users", (err, users) => {
-            db.all("SELECT * FROM messages WHERE target_name = ? ORDER BY timestamp DESC", [targetName], (err, messages) => {
-                target.emit('state_update', { 
+        db.all("SELECT * FROM messages WHERE target_name = ? ORDER BY timestamp DESC", [targetName], (err, msgs) => {
+            db.get("SELECT COUNT(*) as total FROM messages WHERE target_name = ?", [targetName], (err, count) => {
+                target.emit('state_update', {
                     targetName,
-                    users: users || [],
-                    messages: messages || []
+                    messages: msgs || [],
+                    total: count ? count.total : 0
                 });
             });
         });
     });
 }
 
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT}`);
+io.on('connection', (socket) => {
+    sendState(socket);
+
+    socket.on('admin_login', ({ username, password }) => {
+        if (username === ADMIN_USER && password === ADMIN_PASS) {
+            adminSockets.add(socket.id);
+            socket.emit('admin_auth', true);
+            sendState(socket);
+        } else {
+            socket.emit('admin_auth', false);
+        }
+    });
+
+    socket.on('new_round', (name) => {
+        if (!adminSockets.has(socket.id)) return;
+        db.run("UPDATE config SET target_name = ? WHERE id = 1", [name.trim()], () => {
+            sendState(io);
+        });
+    });
+
+    socket.on('clear_messages', () => {
+        if (!adminSockets.has(socket.id)) return;
+        db.get("SELECT target_name FROM config WHERE id = 1", (err, config) => {
+            db.run("DELETE FROM messages WHERE target_name = ?", [config.target_name], () => {
+                sendState(io);
+            });
+        });
+    });
+
+    socket.on('submit_message', (message) => {
+        const text = (message || '').trim();
+        if (!text) return;
+        db.get("SELECT target_name FROM config WHERE id = 1", (err, config) => {
+            db.run("INSERT INTO messages (target_name, message) VALUES (?, ?)", [config.target_name, text], () => {
+                socket.emit('submit_ok');
+                sendState(io);
+            });
+        });
+    });
+
+    socket.on('disconnect', () => adminSockets.delete(socket.id));
 });
+
+server.listen(PORT, '0.0.0.0', () => console.log(`Running on port ${PORT}`));
