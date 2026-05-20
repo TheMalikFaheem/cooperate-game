@@ -13,119 +13,103 @@ const PORT = process.env.PORT || 4000;
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- IN-MEMORY GAME STATE ---
-// This data will be destroyed completely when the server stops.
+// --- IN-MEMORY PRANK STATE ---
 let game = {
-    adminIp: null, // Locked to the first user's public/router IP
+    adminIp: null, 
     adminSocketId: null,
-    status: 'lobby', // 'lobby', 'playing'
-    players: [], // { id, name, ip, role }
+    status: 'setup', // 'setup', 'active'
+    groupCode: '',
+    hrName: '',
+    players: [] // { id, name }
 };
 
 io.on('connection', (socket) => {
-    // Get the IP of the connecting client.
-    // socket.handshake.headers['x-forwarded-for'] is useful if deployed on cloud platforms.
     const rawIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
-    // Handle multiple IPs in x-forwarded-for
     const clientIp = rawIp.split(',')[0].trim();
     
-    console.log(`New connection attempt from IP: ${clientIp}`);
+    console.log(`Connection attempt from IP: ${clientIp}`);
 
     // IP LOCKING LOGIC
     if (!game.adminIp) {
         // First person to connect sets the lock
         game.adminIp = clientIp;
         game.adminSocketId = socket.id;
-        console.log(`Game locked to IP: ${game.adminIp}`);
-        socket.emit('system_message', { type: 'success', text: 'You are the Admin. Room locked to your Wi-Fi IP.' });
+        console.log(`Admin locked to IP: ${game.adminIp}`);
         socket.emit('admin_status', true);
     } else {
-        // Check if subsequent connections match the Admin's IP
-        // We allow localhost/127.0.0.1 bypass for local testing if needed
+        // Enforce network lock (allowing local dev IPs for testing)
         if (clientIp !== game.adminIp && clientIp !== '::1' && clientIp !== '127.0.0.1') {
-            console.log(`Blocked connection from unauthorized IP: ${clientIp}`);
-            socket.emit('access_denied', 'Access Denied: You must be on the same Wi-Fi network as the Host.');
+            console.log(`Blocked unauthorized IP: ${clientIp}`);
+            socket.emit('access_denied', 'Access Denied: Must be on the company local network to access this internal portal.');
             socket.disconnect(true);
             return;
         }
         socket.emit('admin_status', false);
     }
 
-    // Send current state to newly connected (and authorized) client
+    // Send current state
     socket.emit('state_update', game);
 
-    // Handle joining the game
-    socket.on('join_game', (playerName) => {
-        if (game.status !== 'lobby') {
-            socket.emit('system_message', { type: 'error', text: 'Game already in progress.' });
-            return;
-        }
-        
-        // Prevent duplicate names or multiple joins from same socket
-        if (game.players.find(p => p.id === socket.id)) return;
-
-        const newPlayer = {
-            id: socket.id,
-            name: playerName,
-            ip: clientIp,
-            role: null
-        };
-        game.players.push(newPlayer);
-        console.log(`${playerName} joined the game.`);
-        
+    // --- PRANK LOGIC ---
+    
+    // Admin configures the prank
+    socket.on('setup_prank', (data) => {
+        if (socket.id !== game.adminSocketId) return;
+        game.groupCode = data.groupCode;
+        game.hrName = data.hrName;
+        game.status = 'active';
         io.emit('state_update', game);
+        socket.emit('system_message', { type: 'success', text: 'Prank initialized! Awaiting victims...' });
     });
 
-    // Handle game start (Admin only)
-    socket.on('start_game', () => {
-        if (socket.id !== game.adminSocketId) return;
-        if (game.players.length < 3) {
-            socket.emit('system_message', { type: 'error', text: 'Need at least 3 players to start.' });
+    // Victim joins the survey
+    socket.on('join_game', (data) => {
+        if (game.status !== 'active') {
+            socket.emit('system_message', { type: 'error', text: 'Survey is not active yet.' });
+            return;
+        }
+        if (data.groupCode !== game.groupCode) {
+            socket.emit('system_message', { type: 'error', text: 'Invalid Secret Group Code.' });
             return;
         }
 
-        game.status = 'playing';
+        const newPlayer = { id: socket.id, name: data.username };
+        game.players.push(newPlayer);
+        console.log(`${data.username} started the survey.`);
         
-        // Assign Roles (Example logic: 1 Whistleblower per 3 players)
-        const numWhistleblowers = Math.max(1, Math.floor(game.players.length / 3));
-        let roles = Array(game.players.length).fill('Executive');
-        for (let i = 0; i < numWhistleblowers; i++) {
-            roles[i] = 'Whistleblower';
-        }
-        // Shuffle roles
-        roles = roles.sort(() => Math.random() - 0.5);
-        
-        game.players.forEach((player, index) => {
-            player.role = roles[index];
-            // Send private role message to each player
-            io.to(player.id).emit('role_assigned', player.role);
-        });
+        socket.emit('join_success', { hrName: game.hrName });
+        io.emit('state_update', game); // Updates admin dashboard
+    });
 
-        io.emit('state_update', game);
-        io.emit('system_message', { type: 'info', text: 'Game Started! Check your secret role.' });
+    // Victim completes the survey
+    socket.on('quiz_finished', (data) => {
+        // Notify the admin screen that they voted for the HR person!
+        io.to(game.adminSocketId).emit('system_message', { 
+            type: 'success', 
+            text: `🎯 GOT 'EM! ${data.username} just submitted their vote to fire ${game.hrName}!` 
+        });
     });
     
-    // Reset game (Admin only)
+    // Reset prank (Admin only)
     socket.on('reset_game', () => {
         if (socket.id !== game.adminSocketId) return;
-        game.status = 'lobby';
+        game.status = 'setup';
+        game.groupCode = '';
+        game.hrName = '';
         game.players = [];
         io.emit('state_update', game);
-        io.emit('system_message', { type: 'info', text: 'Game has been reset by Admin.' });
     });
 
     socket.on('disconnect', () => {
-        console.log(`Client disconnected: ${socket.id}`);
         game.players = game.players.filter(p => p.id !== socket.id);
         io.emit('state_update', game);
         
         if (socket.id === game.adminSocketId) {
-             console.log('Admin disconnected. The IP lock remains, but admin controls are lost until reset.');
+             console.log('Admin disconnected.');
         }
     });
 });
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
-    console.log(`Network locked to the first connecting IP address.`);
 });
